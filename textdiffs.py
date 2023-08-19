@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
-import gzip, sys, time
+import gzip, sys, time,os
 import numpy as np
-texts = [] # storage array for the texts to read
+import matplotlib.pyplot as plt
+# from saxonche import *
+os.makedirs('./report', exist_ok=True)
 cutoff = 0.06 # max distance to consider reuse
-for filename in sys.argv[1:]: # i.e. you want to provide the list of files as input arguments, e.g. ./textdiffs2.py t1.xml t2.xml t3.xml...
-    with open(filename,'r') as file:
-        texts.append(file.read())
+texts = [] # storage array for the texts to read
+inputs = sys.argv[1:]
+if len(inputs) == 1 and  os.path.splitext(os.path.basename(inputs[0]))[1] == '.xml':
+    print("Single XML as input, assuming sections are to be compared")
+    # proc=PySaxonProcessor(license=False)
+    # xslt30proc=proc.new_xslt30_processor()
+else:
+    textnames = list(map(lambda x: os.path.splitext(os.path.basename(x))[0],inputs))
+    for filename in sys.argv[1:]: # i.e. you want to provide the list of files as input arguments, e.g. ./textdiffs2.py t1.xml t2.xml t3.xml...
+        with open(filename,'r') as file:
+            texts.append(file.read())
 
 diffs = np.zeros((len(texts),len(texts))) # initiate a numpy matrix
 
@@ -32,3 +42,39 @@ for i in range(len(np.argmin(normdiffs,axis=1))):
         print("\t\tWith a defined cutoff distance of {}, we could recommend reusing {} instead of {}\n".format(cutoff,sys.argv[minima[i]+1],sys.argv[i+1]))
     else:
         print("\t\tWith a defined cutoff distance of {}, we cannot identify a substitution candidate for {}\n".format(cutoff,sys.argv[i+1]))
+
+fig, ax = plt.subplots()
+im = ax.imshow(diffs,cmap="Wistia")
+ax.set_xticks(np.arange(len(texts)), labels=sys.argv[1:])
+ax.set_yticks(np.arange(len(texts)), labels=sys.argv[1:])
+plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+         rotation_mode="anchor")
+for i in range(len(texts)):
+    for j in range(len(texts)):
+        text = ax.text(j, i, "{:0.2f}".format(diffs[i, j].item()),
+                       ha="center", va="center", color="b")
+plt.savefig('report/similarities.png',bbox_inches="tight")
+plt.close()
+
+reportfile = open('report/index.html','w')
+reportfile.write("""<html>
+<head>
+<title>Reuse report</title>
+</head>
+<body>
+<h1>Similarity heatmap</h1>
+<img src="similarities.png"/>""")
+
+for textindex in range(len(texts)):
+    fig, ax = plt.subplots()
+    ax.bar(list(range(len(texts))),normdiffs[textindex])
+    ax.set_xticks(np.arange(len(texts)), labels=sys.argv[1:],rotation=45)
+    plt.savefig('report/{}.png'.format(textnames[textindex]),bbox_inches="tight")
+    plt.close()
+    reportfile.write("<h2>Difference scores for {}</h2>\n".format(textnames[textindex]))
+    reportfile.write('<img src="{}.png"/>\n'.format(textnames[textindex]))
+
+reportfile.write("""</body>
+</html>""")
+
+
