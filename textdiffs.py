@@ -2,15 +2,35 @@
 import gzip, sys, time,os
 import numpy as np
 import matplotlib.pyplot as plt
-# from saxonche import *
+from saxonche import *
 os.makedirs('./report', exist_ok=True)
 cutoff = 0.06 # max distance to consider reuse
 texts = [] # storage array for the texts to read
 inputs = sys.argv[1:]
+def cleantitles(xdmtitle):
+    return str(xdmtitle).replace('title=','').strip('"')
 if len(inputs) == 1 and  os.path.splitext(os.path.basename(inputs[0]))[1] == '.xml':
     print("Single XML as input, assuming sections are to be compared")
-    # proc=PySaxonProcessor(license=False)
-    # xslt30proc=proc.new_xslt30_processor()
+    proc=PySaxonProcessor(license=False)
+    xp=proc.new_xslt30_processor()
+    executable = xp.compile_stylesheet(stylesheet_file="textdiff.xsl")
+    doc = proc.parse_xml(xml_file_name='samples/2.xml')
+    executable.apply_templates_returning_file(xdm_node=doc,output_file="textdifftransformed.xml")
+    output = proc.parse_xml(xml_file_name='textdifftransformed.xml')
+    xproc = proc.new_xpath_processor()
+    xproc.set_context(xdm_item=output)
+    xproc.declare_namespace(prefix='d',uri='http://docbook.org/ns/docbook')
+    xdmtextnames = list(xproc.evaluate('//d:section/@title'))
+    xdmtexts = list(xproc.evaluate('//d:section/text()'))
+    textnames = list(map(cleantitles, xdmtextnames))
+    texts = list(map(str, xdmtexts))
+    # xpr = proc.new_xpath_processor()
+    # doc = proc.parse_xml(xml_file_name='samples/2.xml')
+    # xpr.set_context(xdm_item=doc)
+    # titles = xpr.evaluate('//*[local-name()="title"]/text()'
+    
+    # output = executable.transform_to_value(xdm_node=doc)
+    # xpr.set_context(xdm_item=output)
 else:
     textnames = list(map(lambda x: os.path.splitext(os.path.basename(x))[0],inputs))
     for filename in sys.argv[1:]: # i.e. you want to provide the list of files as input arguments, e.g. ./textdiffs2.py t1.xml t2.xml t3.xml...
@@ -37,16 +57,17 @@ endtime = time.time()
 print("Processing time for NCD: {}\n".format(endtime-starttime))
 
 fig, ax = plt.subplots()
+fig.set_size_inches(len(textnames, len(textnames))
 im = ax.imshow(diffs,cmap="Wistia")
 ax.set_xticks(np.arange(len(texts)), labels=textnames)
 ax.set_yticks(np.arange(len(texts)), labels=textnames)
-plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+plt.setp(ax.get_xticklabels(), rotation=90, ha="right",
          rotation_mode="anchor")
 for i in range(len(texts)):
     for j in range(len(texts)):
-        text = ax.text(j, i, "{:0.4f}".format(diffs[i, j].item()),
+        text = ax.text(j, i, "{:0.2f}".format(diffs[i, j].item()),
                        ha="center", va="center", color="b")
-plt.savefig('report/similarities.png',bbox_inches="tight")
+plt.savefig('report/similarities.png',bbox_inches="tight",dpi=300)
 plt.close()
 
 reportfile = open('report/index.html','w')
@@ -56,12 +77,12 @@ reportfile.write("""<html>
 </head>
 <body>
 <h1>Similarity heatmap</h1>
-<img src="similarities.png"/>""")
+<img src="similarities.png" width="100%"/>""")
 
 for textindex in range(len(texts)):
     fig, ax = plt.subplots()
     ax.bar(list(range(len(texts))),diffs[textindex])
-    ax.set_xticks(np.arange(len(texts)), labels=textnames,rotation=45)
+    ax.set_xticks(np.arange(len(texts)), labels=textnames,rotation=90)
     plt.savefig('report/{}.png'.format(textnames[textindex]),bbox_inches="tight")
     plt.close()
     reportfile.write("<h2>Difference scores for {}</h2>\n".format(textnames[textindex]))
