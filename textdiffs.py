@@ -35,23 +35,16 @@ normdiffs = diffs + np.eye(len(texts)) # add an identity matrix to offset sugges
 minima = np.argmin(normdiffs,axis=1) # get the lowest distances in the matrix for each text
 endtime = time.time()
 print("Processing time for NCD: {}\n".format(endtime-starttime))
-print("Based on NCD approximation of Kolmogorov complexity, apart from itself:\n")
-for i in range(len(np.argmin(normdiffs,axis=1))):
-    print("\t* Text {} is most similar to text {}, distance metric {}\n".format(sys.argv[i+1],sys.argv[minima[i]+1],diffs[i,minima[i]]))
-    if diffs[i,minima[i]] < cutoff:
-        print("\t\tWith a defined cutoff distance of {}, we could recommend reusing {} instead of {}\n".format(cutoff,sys.argv[minima[i]+1],sys.argv[i+1]))
-    else:
-        print("\t\tWith a defined cutoff distance of {}, we cannot identify a substitution candidate for {}\n".format(cutoff,sys.argv[i+1]))
 
 fig, ax = plt.subplots()
 im = ax.imshow(diffs,cmap="Wistia")
-ax.set_xticks(np.arange(len(texts)), labels=sys.argv[1:])
-ax.set_yticks(np.arange(len(texts)), labels=sys.argv[1:])
+ax.set_xticks(np.arange(len(texts)), labels=textnames)
+ax.set_yticks(np.arange(len(texts)), labels=textnames)
 plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
          rotation_mode="anchor")
 for i in range(len(texts)):
     for j in range(len(texts)):
-        text = ax.text(j, i, "{:0.2f}".format(diffs[i, j].item()),
+        text = ax.text(j, i, "{:0.4f}".format(diffs[i, j].item()),
                        ha="center", va="center", color="b")
 plt.savefig('report/similarities.png',bbox_inches="tight")
 plt.close()
@@ -67,12 +60,17 @@ reportfile.write("""<html>
 
 for textindex in range(len(texts)):
     fig, ax = plt.subplots()
-    ax.bar(list(range(len(texts))),normdiffs[textindex])
-    ax.set_xticks(np.arange(len(texts)), labels=sys.argv[1:],rotation=45)
+    ax.bar(list(range(len(texts))),diffs[textindex])
+    ax.set_xticks(np.arange(len(texts)), labels=textnames,rotation=45)
     plt.savefig('report/{}.png'.format(textnames[textindex]),bbox_inches="tight")
     plt.close()
     reportfile.write("<h2>Difference scores for {}</h2>\n".format(textnames[textindex]))
     reportfile.write('<img src="{}.png"/>\n'.format(textnames[textindex]))
+    reportfile.write("<p>Closest by difference: {} (distance {})</p>".format(textnames[minima[textindex]], diffs[textindex,minima[textindex]]))
+    if diffs[textindex,minima[textindex]] < cutoff:
+        reportfile.write("<p>With cutoff {}, substition is possible</p>".format(cutoff))
+    else:
+        reportfile.write("<p>With cutoff {}, substition is not possible</p>".format(cutoff))
 
 reportfile.write("""</body>
 </html>""")
