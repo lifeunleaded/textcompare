@@ -60,7 +60,7 @@ for i in range(len(texts)):
         levdiffs[i,j] = distance(texts[i],texts[j]) # populate the matrix with distances
 endtime = time.time()
 levtime = endtime-starttime
-
+levminima = np.argmin(levdiffs,axis=1)
 # Plot NCD heatmap
 fig, ax = plt.subplots()
 fig.set_size_inches(len(textnames), len(textnames))
@@ -124,7 +124,7 @@ for textindex in range(len(texts)):
     plt.close()
     reportfile.write("<h2>Difference scores for {}</h2>\n".format(textnames[textindex]))
     reportfile.write('<img src="lev/{}.png"/>\n'.format(textnames[textindex]))
-    reportfile.write("<p>Closest by difference: {} (distance {})</p>".format(textnames[minima[textindex]], levdiffs[textindex,minima[textindex]]))
+    reportfile.write("<p>Closest by difference: {} (distance {})</p>".format(textnames[levminima[textindex]], levdiffs[textindex,levminima[textindex]]))
 
         
 reportfile.write("""</body>
