@@ -3,13 +3,17 @@ import gzip, sys, time,os
 import numpy as np
 import matplotlib.pyplot as plt
 from saxonche import *
+from Levenshtein import distance
 os.makedirs('./report', exist_ok=True)
+os.makedirs('./report/ncd', exist_ok=True)
+os.makedirs('./report/lev', exist_ok=True)
 cutoff = 0.06 # max distance to consider reuse
 texts = [] # storage array for the texts to read
 inputs = sys.argv[1:]
+
 def cleantitles(xdmtitle):
     return str(xdmtitle).replace('title=','').strip('"')
-if len(inputs) == 1 and  os.path.splitext(os.path.basename(inputs[0]))[1] == '.xml':
+if len(inputs) == 1 and  os.path.splitext(os.path.basename(inputs[0]))[1] == '.xml': # Single input arg ending in .xml is assumed to be a docbook article with sections
     print("Single XML as input, assuming sections are to be compared")
     proc=PySaxonProcessor(license=False)
     xp=proc.new_xslt30_processor()
@@ -24,13 +28,6 @@ if len(inputs) == 1 and  os.path.splitext(os.path.basename(inputs[0]))[1] == '.x
     xdmtexts = list(xproc.evaluate('//d:section/text()'))
     textnames = list(map(cleantitles, xdmtextnames))
     texts = list(map(str, xdmtexts))
-    # xpr = proc.new_xpath_processor()
-    # doc = proc.parse_xml(xml_file_name='samples/2.xml')
-    # xpr.set_context(xdm_item=doc)
-    # titles = xpr.evaluate('//*[local-name()="title"]/text()'
-    
-    # output = executable.transform_to_value(xdm_node=doc)
-    # xpr.set_context(xdm_item=output)
 else:
     textnames = list(map(lambda x: os.path.splitext(os.path.basename(x))[0],inputs))
     for filename in sys.argv[1:]: # i.e. you want to provide the list of files as input arguments, e.g. ./textdiffs2.py t1.xml t2.xml t3.xml...
@@ -38,6 +35,7 @@ else:
             texts.append(file.read())
 
 diffs = np.zeros((len(texts),len(texts))) # initiate a numpy matrix
+levdiffs = np.zeros((len(texts),len(texts))) # initiate a numpy matrix
 
 # NCD as a function
 def ncd(x1,x2):
@@ -54,10 +52,18 @@ for i in range(len(texts)):
 normdiffs = diffs + np.eye(len(texts)) # add an identity matrix to offset suggesting yourself as reuse
 minima = np.argmin(normdiffs,axis=1) # get the lowest distances in the matrix for each text
 endtime = time.time()
-print("Processing time for NCD: {}\n".format(endtime-starttime))
+ncdtime = endtime-starttime
 
+starttime = time.time()
+for i in range(len(texts)):
+    for j in range(len(texts)):
+        levdiffs[i,j] = distance(texts[i],texts[j]) # populate the matrix with distances
+endtime = time.time()
+levtime = endtime-starttime
+
+# Plot NCD heatmap
 fig, ax = plt.subplots()
-fig.set_size_inches(len(textnames, len(textnames))
+fig.set_size_inches(len(textnames), len(textnames))
 im = ax.imshow(diffs,cmap="Wistia")
 ax.set_xticks(np.arange(len(texts)), labels=textnames)
 ax.set_yticks(np.arange(len(texts)), labels=textnames)
@@ -67,7 +73,7 @@ for i in range(len(texts)):
     for j in range(len(texts)):
         text = ax.text(j, i, "{:0.2f}".format(diffs[i, j].item()),
                        ha="center", va="center", color="b")
-plt.savefig('report/similarities.png',bbox_inches="tight",dpi=300)
+plt.savefig('report/ncd/similarities.png',bbox_inches="tight",dpi=300)
 plt.close()
 
 reportfile = open('report/index.html','w')
@@ -76,23 +82,51 @@ reportfile.write("""<html>
 <title>Reuse report</title>
 </head>
 <body>
-<h1>Similarity heatmap</h1>
-<img src="similarities.png" width="100%"/>""")
+<h1>Normalized Compression Distance (NCD)</h1>
+<p>Computation time: {}\n</p>
+<img src="ncd/similarities.png" width="100%"/>""".format(ncdtime))
 
 for textindex in range(len(texts)):
     fig, ax = plt.subplots()
     ax.bar(list(range(len(texts))),diffs[textindex])
     ax.set_xticks(np.arange(len(texts)), labels=textnames,rotation=90)
-    plt.savefig('report/{}.png'.format(textnames[textindex]),bbox_inches="tight")
+    plt.savefig('report/ncd/{}.png'.format(textnames[textindex]),bbox_inches="tight")
     plt.close()
     reportfile.write("<h2>Difference scores for {}</h2>\n".format(textnames[textindex]))
-    reportfile.write('<img src="{}.png"/>\n'.format(textnames[textindex]))
+    reportfile.write('<img src="ncd/{}.png"/>\n'.format(textnames[textindex]))
     reportfile.write("<p>Closest by difference: {} (distance {})</p>".format(textnames[minima[textindex]], diffs[textindex,minima[textindex]]))
     if diffs[textindex,minima[textindex]] < cutoff:
         reportfile.write("<p>With cutoff {}, substition is possible</p>".format(cutoff))
     else:
         reportfile.write("<p>With cutoff {}, substition is not possible</p>".format(cutoff))
+# Plot Levenshtein
+fig, ax = plt.subplots()
+fig.set_size_inches(len(textnames), len(textnames))
+im = ax.imshow(levdiffs,cmap="Wistia")
+ax.set_xticks(np.arange(len(texts)), labels=textnames)
+ax.set_yticks(np.arange(len(texts)), labels=textnames)
+plt.setp(ax.get_xticklabels(), rotation=90, ha="right",
+         rotation_mode="anchor")
+for i in range(len(texts)):
+    for j in range(len(texts)):
+        text = ax.text(j, i, "{:0.2f}".format(levdiffs[i, j].item()),
+                       ha="center", va="center", color="b")
+plt.savefig('report/lev/similarities.png',bbox_inches="tight",dpi=300)
+plt.close()
+reportfile.write("""<h1>Levenshtein Distance</h1>
+<p>Computation time: {}\n</p>
+<img src="lev/similarities.png" width="100%"/>""".format(levtime))
+for textindex in range(len(texts)):
+    fig, ax = plt.subplots()
+    ax.bar(list(range(len(texts))),levdiffs[textindex])
+    ax.set_xticks(np.arange(len(texts)), labels=textnames,rotation=90)
+    plt.savefig('report/lev/{}.png'.format(textnames[textindex]),bbox_inches="tight")
+    plt.close()
+    reportfile.write("<h2>Difference scores for {}</h2>\n".format(textnames[textindex]))
+    reportfile.write('<img src="lev/{}.png"/>\n'.format(textnames[textindex]))
+    reportfile.write("<p>Closest by difference: {} (distance {})</p>".format(textnames[minima[textindex]], levdiffs[textindex,minima[textindex]]))
 
+        
 reportfile.write("""</body>
 </html>""")
 
