@@ -59,8 +59,9 @@ for i in range(len(texts)):
     for j in range(len(texts)):
         levdiffs[i,j] = distance(texts[i],texts[j]) # populate the matrix with distances
 endtime = time.time()
+normlevdiffs = levdiffs + (np.eye(len(texts))*np.max(levdiffs)) # add an identity matrix to offset suggesting yourself as reuse
 levtime = endtime-starttime
-levminima = np.argmin(levdiffs,axis=1)
+levminima = np.argmin(normlevdiffs,axis=1)
 # Plot NCD heatmap
 fig, ax = plt.subplots()
 fig.set_size_inches(len(textnames), len(textnames))
