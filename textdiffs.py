@@ -18,7 +18,7 @@ if len(inputs) == 1 and  os.path.splitext(os.path.basename(inputs[0]))[1] == '.x
     proc=PySaxonProcessor(license=False)
     xp=proc.new_xslt30_processor()
     executable = xp.compile_stylesheet(stylesheet_file="textdiff.xsl")
-    doc = proc.parse_xml(xml_file_name='samples/2.xml')
+    doc = proc.parse_xml(xml_file_name=inputs[0])
     executable.apply_templates_returning_file(xdm_node=doc,output_file="textdifftransformed.xml")
     output = proc.parse_xml(xml_file_name='textdifftransformed.xml')
     xproc = proc.new_xpath_processor()
