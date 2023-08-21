@@ -20,7 +20,7 @@
   <xsl:template match="d:section">
     <xsl:copy>
       <xsl:attribute name="title" select="d:title"/>
-      <xsl:value-of select="descendant::*[not(self::d:section or self::d:title)]"/>
+      <xsl:value-of select="child::*[not(self::d:section or self::d:title)]"/>
       <!-- Excluding descendant sections, as they become their own text entities -->
     </xsl:copy>
     <xsl:apply-templates/>
